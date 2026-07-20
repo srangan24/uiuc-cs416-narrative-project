@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Infant Mortality and GDP</title>
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+    </head>
+    <body>
+        <h1> Infant Mortality and Economic Development (2012)</h1>
+        <p> This is a simple visualization of the relationship between infant mortality and GDP per capita using the World Development Indicators dataset.
+            Click the buttons to move through the story. Hover over the points for more details about the country.
+        </p>
+        <button onclick="setScene(0)">Scene 1</button>
+        <button onclick="setScene(1)">Scene 2</button>
+        <button onclick="setScene(2)">Scene 3</button>
+
+        <p id="message"></p>
+        
+        <table>
+            <tr>
+                <td>
+                    <svg id="chart" width="850" height="500"></svg>
+                </td>
+                <td width="250" valign="top">
+                    <p id="sceneText"></p>
+                    <p id="details"> Hover over a point to see details.</p>
+                </td>
+            </tr>
+        </table>
+
+        <script>
+            var svg = d3.select("#chart");
+            var width = +svg.attr("width");
+            var height = +svg.attr("height");
+            var margin = 60;
+            var scene = 0;
+            var allData;
+
+            var x = d3.scaleLog().range([margin, width - margin]);
+            var y = d3.scaleLinear().range([height - margin, margin]);
+
+            d3.csv("data.csv").then(function(data) {
+                data.forEach(function(d) {
+                    d.year = +d.year;
+                    d.gdp_per_capita = +d.gdp_per_capita;
+                    d.infant_mortality = +d.infant_mortality;
+                });
+
+                allData = data.filter(function(d) {
+                    return d.year === 2012 && d.gdp_per_capita > 0 && d.infant_mortality >= 0;
+                });
+                x.domain(d3.extent(allData, function(d) { return d.gdp_per_capita; }));
+                y.domain([0, d3.max(allData, function(d) { return d.infant_mortality; })]);
+                drawScene();
+            });
+            
+            function setScene(s) {
+                scene = s;
+                drawScene();
+            }
+
+            function drawScene() {
+                if (!allData) return;
+                svg.selectAll("*").remove();
+                svg.append("g")
+                    .attr("transform", "translate(0," + (height - margin) + ")")
+                    .call(d3.axisBottom(x));
+                svg.append("g")
+                    .attr("transform", "translate(" + margin + ",0)")
+                    .call(d3.axisLeft(y));
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height - 15)
+                    .attr("text-anchor", "middle")
+                    .text("GDP per Capita (log scale)");
+                svg.append("text")
+                    .attr("x", -height / 2)
+                    .attr("y", 20)
+                    .attr("transform", "rotate(-90)")
+                    .attr("text-anchor", "middle")
+                    .text("Infant Mortality (deaths per 1,000 births)");
+                svg.selectAll("circle").data(allData).enter().append("circle")
+                    .attr("cx", function(d) { return x(d.gdp_per_capita); })
+                    .attr("cy", function(d) { return y(d.infant_mortality); })
+                    .attr("r", 4)
+                    .attr("fill", function(d) {
+                        if (scene === 0) {
+                            return "steelblue";
+                        } if (scene === 1 && d.infant_mortality >= 60) {
+                            return "red";
+                        } if (scene === 2 && d.infant_mortality <= 5) {
+                            return "green";
+                        }
+                        return "lightgray";
+                    })
+                    .attr("opacity", function(d) {
+                        if (scene === 0) {
+                            return 0.8;
+                        } if (scene === 1 && d.infant_mortality >= 60) {
+                            return 0.9;
+                        } if (scene === 2 && d.infant_mortality <= 5) {
+                            return 0.9;
+                        }
+                        return 0.3;
+                    })
+                    .on("mouseover", function(event, d) {
+                        d3.select("#details").html(
+                            d.country + "<br/>" +
+                            "GDP per capita: " + Math.round(d.gdp_per_capita) + "<br/>" +
+                            "Infant mortality: " + d.infant_mortality
+                        );
+                    })
+                    .on("mouseout", function() {
+                        d3.select("#details").html("Hover over a point to see details.");
+                    });
+
+                    updateText();
+            }
+
+            function updateText() {
+                if (scene === 0) {
+                    d3.select("#sceneText").text("Countries with higher GDP per capita tend to have lower infant mortality rates.");
+                    d3.select("#message").text("Scene 1: Overview");
+                } else if (scene === 1) {
+                    d3.select("#sceneText").text("Red circles show countries with infant mortality of 60 or more deaths per 1,000 births.");
+                    d3.select("#message").text("Scene 2: High Infant Mortality");
+                } else if (scene === 2) {
+                    d3.select("#sceneText").text("Green circles show countries with infant mortality of 5 or fewer deaths per 1,000 births.");
+                    d3.select("#message").text("Scene 3: Low Infant Mortality");
+                }
+            }
+
+
+        </script>
+    </body>
+</html>
